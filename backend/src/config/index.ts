@@ -26,8 +26,8 @@ export const config = {
   // Anthropic Claude API
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
 
-  // Hunter.io
-  hunterApiKey: process.env.HUNTER_API_KEY || '',
+  // Google Maps Places API
+  googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || '',
 
   // Scraper constraints
   scraper: {
