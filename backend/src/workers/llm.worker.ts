@@ -25,14 +25,14 @@ Rules:
 
 async function callClaudeAPI(scrapedText: string): Promise<LLMResult> {
   // Use Pollination's OpenAI-compatible API with API key for Claude access
-  const response = await fetch('https://text.pollinations.ai/openai/v1/chat/completions', {
+  const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${config.anthropicApiKey}`,
     },
     body: JSON.stringify({
-      model: 'claude-xlarge',
+      model: 'claude-opus-4.7',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         {
@@ -40,7 +40,6 @@ async function callClaudeAPI(scrapedText: string): Promise<LLMResult> {
           content: `Analyze the following company website content and produce the lead intelligence JSON report:\n\n${scrapedText}`,
         },
       ],
-      temperature: 0.3,
       max_tokens: 1024,
     }),
   });
