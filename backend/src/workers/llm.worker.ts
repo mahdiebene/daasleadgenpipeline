@@ -24,76 +24,37 @@ Rules:
 - Output ONLY the JSON object. Any other text will cause a system failure.`;
 
 async function callClaudeAPI(scrapedText: string): Promise<LLMResult> {
-  // Use Pollination's OpenAI-compatible API for Claude access
-  // Falls back to direct Anthropic API if ANTHROPIC_API_KEY is set
-  const usePollinationAPI = !config.anthropicApiKey || config.anthropicApiKey === 'pollination';
+  // Use Pollination's OpenAI-compatible API with API key for Claude access
+  const response = await fetch('https://text.pollinations.ai/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${config.anthropicApiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        {
+          role: 'user',
+          content: `Analyze the following company website content and produce the lead intelligence JSON report:\n\n${scrapedText}`,
+        },
+      ],
+      temperature: 0.3,
+      max_tokens: 1024,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Pollination API error (${response.status}): ${errorBody}`);
+  }
+
+  const data = await response.json() as any;
+  const responseText: string = data.choices?.[0]?.message?.content || '';
   
-  let responseText: string;
-
-  if (usePollinationAPI) {
-    // Pollination API (OpenAI-compatible, free Claude access)
-    const response = await fetch('https://text.pollinations.ai/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'openai',
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          {
-            role: 'user',
-            content: `Analyze the following company website content and produce the lead intelligence JSON report:\n\n${scrapedText}`,
-          },
-        ],
-        temperature: 0.3,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`Pollination API error (${response.status}): ${errorBody}`);
-    }
-
-    const data = await response.json() as any;
-    responseText = data.choices?.[0]?.message?.content || '';
-    
-    if (!responseText) {
-      throw new Error('No content in Pollination API response');
-    }
-  } else {
-    // Direct Anthropic API
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': config.anthropicApiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
-        system: SYSTEM_PROMPT,
-        messages: [
-          {
-            role: 'user',
-            content: `Analyze the following company website content and produce the lead intelligence JSON report:\n\n${scrapedText}`,
-          },
-        ],
-      }),
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`Claude API error (${response.status}): ${errorBody}`);
-    }
-
-    const data = await response.json() as any;
-    const textContent = data.content?.find((block: any) => block.type === 'text');
-    if (!textContent?.text) {
-      throw new Error('No text content in Claude API response');
-    }
-    responseText = textContent.text;
+  if (!responseText) {
+    throw new Error('No content in Pollination API response');
   }
 
   // Parse the JSON response
