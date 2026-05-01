@@ -32,7 +32,7 @@ async function callClaudeAPI(scrapedText: string): Promise<LLMResult> {
       'Authorization': `Bearer ${config.anthropicApiKey}`,
     },
     body: JSON.stringify({
-      model: 'openai',
+      model: 'claude-xlarge',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         {
