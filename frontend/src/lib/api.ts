@@ -21,9 +21,10 @@ async function apiRequest(endpoint: string, options: RequestInit = {}) {
 
 export interface IngestResponse {
   batchId: string;
-  totalJobs: number;
-  invalidUrls?: string[];
-  jobs: { id: string; url: string; status: string }[];
+  totalBusinesses: number;
+  totalWithWebsites: number;
+  totalWithoutWebsites: number;
+  jobs: { id: string; url: string; status: string; business_name: string; phone: string | null }[];
 }
 
 export interface StatusResponse {
@@ -42,6 +43,9 @@ export interface StatusResponse {
     url: string;
     status: string;
     error: string | null;
+    business_name: string | null;
+    phone: string | null;
+    address: string | null;
     created_at: string;
     updated_at: string;
   }[];
@@ -51,6 +55,9 @@ export interface LeadResult {
   id: string;
   url: string;
   status: string;
+  business_name: string | null;
+  phone: string | null;
+  address: string | null;
   company_name: string | null;
   core_focus: string | null;
   data_vulnerabilities: string[] | null;
@@ -70,10 +77,10 @@ export interface ResultsResponse {
   results: LeadResult[];
 }
 
-export async function ingestUrls(urls: string[]): Promise<IngestResponse> {
+export async function ingestSearch(niche: string, location: string): Promise<IngestResponse> {
   return apiRequest('/api/ingest', {
     method: 'POST',
-    body: JSON.stringify({ urls }),
+    body: JSON.stringify({ niche, location }),
   });
 }
 

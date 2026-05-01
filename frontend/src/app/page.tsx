@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ingestUrls, getBatchStatus, getBatchResults, StatusResponse, LeadResult } from '@/lib/api';
+import { ingestSearch, getBatchStatus, getBatchResults, StatusResponse, LeadResult } from '@/lib/api';
 import { exportToCSV } from '@/lib/csv';
 
 // ─── Status badge colors ───
@@ -15,46 +15,59 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 // ═══════════════════════════════════════════════════════
-// Component 1: Input Interface
+// Component 1: Niche & Location Input
 // ═══════════════════════════════════════════════════════
-function UrlInputPanel({
+function SearchInputPanel({
   onSubmit,
   isLoading,
 }: {
-  onSubmit: (urls: string[]) => void;
+  onSubmit: (niche: string, location: string) => void;
   isLoading: boolean;
 }) {
-  const [text, setText] = useState('');
+  const [niche, setNiche] = useState('');
+  const [location, setLocation] = useState('');
 
   const handleSubmit = () => {
-    const urls = text
-      .split('\n')
-      .map(u => u.trim())
-      .filter(u => u.length > 0);
-    if (urls.length === 0) return;
-    onSubmit(urls);
+    if (!niche.trim() || !location.trim()) return;
+    onSubmit(niche.trim(), location.trim());
   };
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-      <h2 className="text-lg font-semibold mb-3 text-white">Target URLs</h2>
+      <h2 className="text-lg font-semibold mb-3 text-white">Lead Search</h2>
       <p className="text-sm text-gray-400 mb-4">
-        Enter one URL per line. Each URL will be scraped, analyzed by AI, and enriched with contact data.
+        Enter a business niche and location. We&apos;ll find businesses, scrape their websites, and generate AI-powered lead intelligence.
       </p>
-      <textarea
-        value={text}
-        onChange={e => setText(e.target.value)}
-        placeholder={`https://example.com\nhttps://another-company.io\nhttps://startup.dev`}
-        className="w-full h-48 bg-gray-950 border border-gray-700 rounded-lg p-4 text-sm font-mono text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-        disabled={isLoading}
-      />
-      <div className="flex items-center justify-between mt-4">
-        <span className="text-xs text-gray-500">
-          {text.split('\n').filter(u => u.trim()).length} URL(s) entered
-        </span>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-400 mb-1.5">Target Niche</label>
+          <input
+            type="text"
+            value={niche}
+            onChange={e => setNiche(e.target.value)}
+            placeholder="e.g. Plumbers, Dentists, SaaS Companies"
+            className="w-full bg-gray-950 border border-gray-700 rounded-lg px-4 py-3 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            disabled={isLoading}
+            onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-400 mb-1.5">Target Location</label>
+          <input
+            type="text"
+            value={location}
+            onChange={e => setLocation(e.target.value)}
+            placeholder="e.g. New York, NY or Los Angeles, CA"
+            className="w-full bg-gray-950 border border-gray-700 rounded-lg px-4 py-3 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            disabled={isLoading}
+            onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+          />
+        </div>
+      </div>
+      <div className="flex items-center justify-end">
         <button
           onClick={handleSubmit}
-          disabled={isLoading || text.trim().length === 0}
+          disabled={isLoading || !niche.trim() || !location.trim()}
           className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium rounded-lg transition-colors duration-150 flex items-center gap-2"
         >
           {isLoading ? (
@@ -63,10 +76,15 @@ function UrlInputPanel({
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              Processing...
+              Searching...
             </>
           ) : (
-            'Start Analysis'
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              Find Leads
+            </>
           )}
         </button>
       </div>
@@ -121,10 +139,15 @@ function StatusTracker({ status }: { status: StatusResponse | null }) {
             key={job.id}
             className="flex items-center justify-between bg-gray-950 rounded-lg px-4 py-2.5 border border-gray-800"
           >
-            <span className="text-sm text-gray-300 truncate max-w-md font-mono">
-              {job.url}
-            </span>
-            <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[job.status] || 'bg-gray-700'}`}>
+            <div className="flex-1 min-w-0 mr-3">
+              <span className="text-sm text-white font-medium block truncate">
+                {job.business_name || job.url || '—'}
+              </span>
+              {job.phone && (
+                <span className="text-xs text-gray-500">{job.phone}</span>
+              )}
+            </div>
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0 ${STATUS_COLORS[job.status] || 'bg-gray-700'}`}>
               {job.status}
             </span>
           </div>
@@ -162,8 +185,9 @@ function ResultsDashboard({ results }: { results: LeadResult[] }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-800">
-              <th className="text-left py-3 px-4 text-gray-400 font-medium">Company</th>
-              <th className="text-left py-3 px-4 text-gray-400 font-medium">Target Emails</th>
+              <th className="text-left py-3 px-4 text-gray-400 font-medium">Business</th>
+              <th className="text-left py-3 px-4 text-gray-400 font-medium">Phone</th>
+              <th className="text-left py-3 px-4 text-gray-400 font-medium">Contacts</th>
               <th className="text-left py-3 px-4 text-gray-400 font-medium">Weakness</th>
               <th className="text-left py-3 px-4 text-gray-400 font-medium">Dataset Pitch</th>
               <th className="text-left py-3 px-4 text-gray-400 font-medium">Status</th>
@@ -173,8 +197,20 @@ function ResultsDashboard({ results }: { results: LeadResult[] }) {
             {results.map(result => (
               <tr key={result.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                 <td className="py-3 px-4">
-                  <div className="font-medium text-white">{result.company_name || '—'}</div>
-                  <div className="text-xs text-gray-500 font-mono truncate max-w-48">{result.url}</div>
+                  <div className="font-medium text-white">{result.business_name || result.company_name || '—'}</div>
+                  {result.address && (
+                    <div className="text-xs text-gray-500 mt-0.5">{result.address}</div>
+                  )}
+                  {result.url && (
+                    <div className="text-xs text-blue-500 font-mono truncate max-w-48">{result.url}</div>
+                  )}
+                </td>
+                <td className="py-3 px-4">
+                  {result.phone ? (
+                    <span className="text-sm text-gray-300">{result.phone}</span>
+                  ) : (
+                    <span className="text-gray-600">—</span>
+                  )}
                 </td>
                 <td className="py-3 px-4">
                   {result.contacts && result.contacts.length > 0 ? (
@@ -192,7 +228,7 @@ function ResultsDashboard({ results }: { results: LeadResult[] }) {
                       )}
                     </div>
                   ) : (
-                    <span className="text-gray-600">No contacts found</span>
+                    <span className="text-gray-600">—</span>
                   )}
                 </td>
                 <td className="py-3 px-4">
@@ -228,13 +264,13 @@ function ResultsDashboard({ results }: { results: LeadResult[] }) {
       </div>
 
       {/* Email hook preview */}
-      {completedResults.length > 0 && (
+      {completedResults.filter(r => r.cold_email_hook).length > 0 && (
         <div className="mt-6 border-t border-gray-800 pt-6">
           <h3 className="text-sm font-semibold text-gray-400 mb-3">Cold Email Hooks Preview</h3>
           <div className="space-y-3">
-            {completedResults.slice(0, 5).map(r => (
+            {completedResults.filter(r => r.cold_email_hook).slice(0, 5).map(r => (
               <div key={r.id} className="bg-gray-950 rounded-lg p-4 border border-gray-800">
-                <div className="text-xs text-blue-400 mb-1">{r.company_name}</div>
+                <div className="text-xs text-blue-400 mb-1">{r.business_name || r.company_name}</div>
                 <p className="text-sm text-gray-300 italic">&ldquo;{r.cold_email_hook}&rdquo;</p>
               </div>
             ))}
@@ -254,22 +290,21 @@ export default function Home() {
   const [results, setResults] = useState<LeadResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchInfo, setSearchInfo] = useState<string | null>(null);
 
-  const handleSubmit = async (urls: string[]) => {
+  const handleSubmit = async (niche: string, location: string) => {
     setIsLoading(true);
     setError(null);
     setResults([]);
     setStatus(null);
+    setSearchInfo(null);
 
     try {
-      const response = await ingestUrls(urls);
+      const response = await ingestSearch(niche, location);
       setBatchId(response.batchId);
-
-      if (response.invalidUrls && response.invalidUrls.length > 0) {
-        setError(`${response.invalidUrls.length} invalid URL(s) were skipped`);
-      }
+      setSearchInfo(`Found ${response.totalBusinesses} businesses (${response.totalWithWebsites} with websites)`);
     } catch (err: any) {
-      setError(err.message || 'Failed to submit URLs');
+      setError(err.message || 'Failed to search directory');
       setIsLoading(false);
     }
   };
@@ -282,11 +317,9 @@ export default function Home() {
       const statusData = await getBatchStatus(batchId);
       setStatus(statusData);
 
-      // Check if all jobs are done
       const allDone = statusData.summary.completed + statusData.summary.failed === statusData.summary.total;
 
       if (allDone && statusData.summary.total > 0) {
-        // Fetch full results
         const resultsData = await getBatchResults(batchId);
         setResults(resultsData.results);
         setIsLoading(false);
@@ -299,12 +332,8 @@ export default function Home() {
   useEffect(() => {
     if (!batchId) return;
 
-    // Initial poll
     pollStatus();
-
-    // Set up polling interval (every 3 seconds)
     const interval = setInterval(pollStatus, 3000);
-
     return () => clearInterval(interval);
   }, [batchId, pollStatus]);
 
@@ -317,8 +346,15 @@ export default function Home() {
         </div>
       )}
 
-      {/* Component 1: Input Interface */}
-      <UrlInputPanel onSubmit={handleSubmit} isLoading={isLoading} />
+      {/* Search info banner */}
+      {searchInfo && (
+        <div className="bg-blue-900/30 border border-blue-800 rounded-lg px-4 py-3 text-sm text-blue-300">
+          {searchInfo}
+        </div>
+      )}
+
+      {/* Component 1: Search Input */}
+      <SearchInputPanel onSubmit={handleSubmit} isLoading={isLoading} />
 
       {/* Component 2: Live Status Tracker */}
       <StatusTracker status={status} />

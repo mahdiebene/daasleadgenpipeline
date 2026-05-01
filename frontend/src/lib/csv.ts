@@ -2,7 +2,9 @@ import { LeadResult } from './api';
 
 export function exportToCSV(results: LeadResult[], filename: string = 'leads.csv'): void {
   const headers = [
-    'Company Name',
+    'Business Name',
+    'Phone',
+    'Address',
     'URL',
     'Status',
     'Core Focus',
@@ -16,7 +18,9 @@ export function exportToCSV(results: LeadResult[], filename: string = 'leads.csv
   ];
 
   const rows = results.map(r => [
-    escapeCsvField(r.company_name || ''),
+    escapeCsvField(r.business_name || r.company_name || ''),
+    escapeCsvField(r.phone || ''),
+    escapeCsvField(r.address || ''),
     escapeCsvField(r.url),
     escapeCsvField(r.status),
     escapeCsvField(r.core_focus || ''),
